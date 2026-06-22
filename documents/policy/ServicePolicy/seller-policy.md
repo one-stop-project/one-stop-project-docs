@@ -1,0 +1,129 @@
+## 판매자
+
+- 판매자 상태:
+    - PENDING
+    - APPROVED
+    - REJECTED
+    - SUSPENDED
+- 판매자 생성 시 기본 상태:
+    - PENDING
+- 판매자 관리 API 접근 권한:
+    - ADMIN
+    - SUPER_ADMIN
+- 판매자 승인:
+    - PENDING 상태 판매자 승인 가능
+    - 승인 시 `Seller.status → APPROVED`
+    - 승인 처리 이력 `AdminActionHistory` 저장
+        - target_type: SELLER
+        - action: APPROVE
+    - 이미 APPROVED 상태인 판매자 재승인 불가
+- 판매자 반려:
+    - PENDING 상태 판매자 반려 가능
+    - 반려 사유 필수
+    - 반려 시 `Seller.status → REJECTED`
+    - 반려 처리 이력 `AdminActionHistory` 저장
+        - target_type: SELLER
+        - action: REJECT
+        - reason: 관리자 입력값
+    - 이미 REJECTED 상태인 판매자 재반려 불가
+- 판매자 상품 등록 및 관리:
+    - `Seller.status == APPROVED` 상태에서만 가능
+    - 승인되지 않은 판매자는 상품 등록 및 판매자 기능 이용 불가
+- 구매자 상품 노출 조건:
+    - Seller 상태가 APPROVED
+    - Product 상태가 APPROVED
+    - 판매중(ON_SALE) 옵션이 1개 이상 존재
+- 판매자 강제 비활성화:
+    - APPROVED 상태 판매자만 정지 가능
+    - 정지 사유 필수
+    - 탈퇴한 회원은 정지 불가
+    - 이미 정지된 판매자 중복 정지 불가
+- 판매자 정지 시 회원·판매자 상태:
+    - `User.status → SUSPENDED`
+    - `Seller.status → SUSPENDED`
+- 판매자 정지 시 인증 세션 무효화:
+    - User tokenVersion 증가
+    - tokenVersion 캐시 제거
+    - 사용자 단위 Access Token `iat-cutoff` 등록
+    - 전체 기기 ZSET 제거
+    - 전체 Refresh Token 제거
+    - 기존 Access Token 사용 차단
+- 판매자 정지 시 상품 처리:
+    - 해당 판매자의 전체 상품을 `FORCE_INACTIVE` 상태로 변경
+    - 상품 옵션 및 재고 데이터는 삭제하지 않음
+    - 구매자에게 상품 비노출
+- 판매자 정지 시 자동 취소 대상 주문 상품:
+    - ORDERED
+    - CONFIRMED
+- 판매자 정지 시 주문 상품 처리:
+    - 해당 판매자의 진행 중 OrderItem 취소
+    - 재고 즉시 복구
+    - `OrderItem.status → CANCELED`
+    - `OrderCancelHistory` 저장
+- 판매자 정지 자동 취소 이력:
+    - actor_type: ADMIN
+    - actor_id: 처리 관리자 ID
+    - cancel_type: ADMIN_CANCEL
+    - reason: `판매자 계정 정지로 인한 자동 취소`
+    - cancel_amount: 취소된 상품 가격 × 수량
+    - restored_point: 실제 복구된 포인트
+- 판매자 정지 시 주문 단위 혜택 복구:
+    - 해당 판매자 상품 취소로 주문 전체가 취소된 경우에만 수행
+    - 주문 상태를 취소 상태로 변경
+    - 주문에 사용된 포인트 복구
+    - 주문에 적용된 쿠폰 복구
+    - 복구된 포인트를 취소 이력에 기록
+- 판매자 정지로 인한 부분 취소:
+    - 다른 판매자의 OrderItem이 남아 있으면 주문 전체 취소로 처리하지 않음
+    - 해당 판매자의 OrderItem과 재고만 취소·복구
+    - 주문 단위 포인트 복구하지 않음
+    - 주문 단위 쿠폰 복구하지 않음
+    - 부분 취소 포인트·쿠폰 비례 배분은 현재 미지원
+- 주문 혜택 중복 복구 방지:
+    - 이미 전체 취소된 주문은 포인트·쿠폰 재복구하지 않음
+    - 동일 주문의 다수 취소 이력에 복구 포인트를 중복 기록하지 않음
+- 판매자 정지 처리 이력:
+    - `AdminActionHistory` 저장
+    - target_type: SELLER
+    - action: FORCE_INACTIVE
+    - reason: 관리자 입력값
+- 판매자 복구:
+    - SUSPENDED 상태 판매자만 복구 가능
+    - API: `PATCH /api/admin/sellers/{sellerId}/reactivate`
+    - 복구 시 `User.status → ACTIVE`
+    - 복구 시 `Seller.status → APPROVED`
+    - 사용자 상태 캐시 제거
+    - 복구 처리 이력 `AdminActionHistory` 저장
+        - target_type: SELLER
+        - action: REACTIVATE
+    - 정지 상태가 아닌 판매자 복구 요청 불가
+- 판매자 복구 후 상품:
+    - 기존 상품 자동 활성화하지 않음
+    - 상품 상태는 FORCE_INACTIVE 유지
+    - 판매자가 심사 대상 상품 정보를 수정하면 APPROVE_REQUESTED로 전환
+    - 관리자 재승인 후 APPROVED 전환 가능
+- FORCE_INACTIVE 상품 재승인 흐름:
+    - FORCE_INACTIVE
+    - 상품 심사 대상 정보 수정
+    - APPROVE_REQUESTED
+    - 관리자 승인 또는 반려
+- 상품 재승인 대상 정보:
+    - 상품명
+    - 상품 설명
+    - 썸네일
+    - 카테고리
+    - 상품 이미지
+- 상품 재승인 비대상 정보:
+    - 가격
+    - 재고
+    - 상품 태그
+- 판매자 복구 시 기존 취소 주문:
+    - 자동 복원하지 않음
+    - 취소된 OrderItem 상태 복원하지 않음
+    - 복구된 재고·포인트·쿠폰을 다시 회수하지 않음
+- 판매자 관련 관리자 API:
+    - `GET /api/admin/sellers`
+    - `PATCH /api/admin/sellers/{sellerId}/approve`
+    - `PATCH /api/admin/sellers/{sellerId}/reject`
+    - `PATCH /api/admin/sellers/{sellerId}/force-inactive`
+    - `PATCH /api/admin/sellers/{sellerId}/reactivate`

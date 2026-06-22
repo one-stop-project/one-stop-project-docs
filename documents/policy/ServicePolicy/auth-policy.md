@@ -1,0 +1,222 @@
+## 회원 / 인증 / 인가
+
+- 회원 Role:
+    - BUYER
+    - SELLER
+    - ADMIN
+    - SUPER_ADMIN
+- 일반 회원가입 가능 Role:
+    - BUYER
+    - SELLER
+    - ADMIN / SUPER_ADMIN은 관리자 권한 변경을 통해서만 부여
+- 회원 상태:
+    - ACTIVE
+    - SUSPENDED
+    - WITHDRAWN
+- SUSPENDED / WITHDRAWN 회원은 로그인 및 인증 API 이용 불가
+- 사용자 조회 및 로그인 시 `User.verifyActive()`로 회원 상태 검증
+- 회원가입 이메일:
+    - 필수
+    - 이메일 형식 검증
+    - 사전 중복 조회
+    - DB UNIQUE 인덱스로 동시 가입 중복 방지
+- 회원가입 비밀번호:
+    - 8자 이상
+    - 영문 포함
+    - 숫자 포함
+    - 특수문자 `@$!%*#?&` 중 1개 이상 포함
+- 회원 이름:
+    - 필수
+    - 2자 이상 20자 이하
+- 회원 전화번호:
+    - 입력 시 `010-XXXX-XXXX` 형식
+- SELLER 가입 추가 검증:
+    - `shopName` 필수
+    - `businessNumber` 필수
+    - `bankAccount`는 현재 필수 검증 대상 아님
+- 로그인 실패 시 이메일 존재 여부와 비밀번호 오류 여부를 구분해서 노출하지 않음
+- 존재하지 않는 이메일도 더미 BCrypt 검증을 수행하여 응답 시간 차이 최소화
+- 로그인 Rate Limit:
+    - 동일 계정: 1분 5회
+    - 동일 IP: 1분 20회
+    - 전체 로그인: 1분 1,000회
+    - 인증 성공 후 계정별 동시 로그인 시도: 1분 10회
+    - 동일 IP 신규 기기 등록: 10분 10회
+    - 동일 계정 신규 기기 등록: 5분 3회
+- 신규 기기 계정 제한은 실제 기기 등록 전에 검증
+    - 제한 초과 시 Access Token / Refresh Token 발급 중단
+    - Redis 기기 등록 및 Device Context 저장 미실행
+    - Refresh Token이 없는 불완전한 기기 정보 생성 방지
+- 로그인 성공 시:
+    - Access Token 발급
+    - Refresh Token 발급
+    - 기기 등록 또는 마지막 활동 시각 갱신
+    - Refresh Token Redis 저장
+    - Device Context 저장
+    - 마지막 로그인 시각 갱신
+    - 비로그인 장바구니 병합
+- 장바구니 병합 실패는 로그인 성공에 영향을 주지 않는 best-effort 정책
+- JWT 서명:
+    - 알고리즘: HS256
+    - Base64 디코딩 후 Secret Key 최소 32바이트 검증
+    - 최소 길이 미충족 시 애플리케이션 시작 실패
+- Access Token:
+    - 만료 시간: 15분
+    - Payload:
+        - `sub`: userId
+        - `role`
+        - `ver`: tokenVersion
+        - `jti`
+        - `iat`
+        - `exp`
+    - 이메일 등 불필요한 개인정보 미포함
+- Refresh Token:
+    - 기본 / 로컬 / 운영 만료 시간: 14일
+    - 테스트 프로파일 만료 시간: 7일
+    - Payload:
+        - `sub`: userId
+        - `deviceId`
+        - `jti`
+        - `iat`
+        - `exp`
+    - Redis 저장 시 원문이 아닌 SHA-256 해시 저장
+    - Redis TTL은 Refresh Token 만료 시간과 동일하게 설정
+- Refresh Token 재발급 시:
+    - 동일 기기 기준 1분 30회 Rate Limit
+    - 서명 및 만료 검증
+    - Token의 `deviceId`와 쿠키 `device_id` 비교
+    - 사용자 기기 ZSET 등록 여부 확인
+    - 사용자 존재 여부 및 ACTIVE 상태 검증
+    - Redis Lua CAS로 기존 Refresh Token 폐기 및 신규 Token 교체
+    - Device Context 검증
+    - 기기 마지막 활동 시각 갱신
+    - 정상 환경 변화를 반영하도록 Device Context 갱신
+- 동일 Refresh Token 동시 재사용 시 1건만 성공
+- Refresh Token Rotation 실패 시 재사용·탈취 또는 동시성 충돌로 판단하여 재발급 차단
+- 로그아웃 또는 LRU 추방으로 기기 ZSET에서 제거된 기기는 Refresh Token 재사용 불가
+- 기기 식별자:
+    - 서버에서 UUID 형식의 `device_id` 발급
+    - 기존 유효 UUID 쿠키가 있으면 재사용
+    - MAC 주소 등 실제 하드웨어 식별자 미사용
+- 한 사용자당 최대 5개 기기 로그인 가능
+- 기기 목록은 Redis ZSET으로 관리:
+    - Key: `devices:{userId}`
+    - Value: deviceId
+    - Score: 마지막 활동 시각
+- 최대 기기 수 초과 시 가장 오래된 기기를 LRU 방식으로 자동 로그아웃
+- LRU 추방 시:
+    - 기기 ZSET 제거
+    - Refresh Token 삭제
+    - Device Context 삭제
+- 기기 ZSET 비정상 증가 방지를 위한 절대 상한: 100개
+- 기기 ZSET TTL: 14일
+- Device Context는 다음 값을 조합하여 SHA-256 해시로 저장:
+    - deviceId
+    - OS 종류
+    - 브라우저 종류
+    - IP 네트워크 대역
+        - IPv4: `/24`
+        - IPv6: `/48`
+- Device Context에서 변동이 잦은 값은 제외:
+    - 전체 User-Agent 문자열
+    - 브라우저 버전
+    - 전체 IP 주소
+- Device Context 검증 결과:
+    - MATCH: 기존 접속 환경과 일치
+    - MISMATCH: OS / 브라우저 / IP 대역 변동
+    - UNKNOWN: 저장값 없음, TTL 만료 또는 Redis 장애
+- Device Context MISMATCH 발생 시:
+    - 모바일 네트워크 변경 등 오탐 가능성을 고려해 즉시 차단하지 않음
+    - 보안 감사 이벤트 기록 후 요청 통과
+- Device Context TTL: 14일
+- Device Context 저장·조회 시 Redis 장애는 UNKNOWN으로 처리하는 Fail-Open 정책
+- 다음 이벤트 발생 시 모든 기기의 로그인 세션 무효화:
+    - 비밀번호 변경
+    - 회원 탈퇴
+    - 계정 정지
+    - 사용자 Role 변경
+    - 관리자 / 판매자 권한 변경
+- 사용자 단위 토큰 무효화:
+    - DB `tokenVersion` 증가
+    - 트랜잭션 커밋 후 tokenVersion 캐시 동기 제거
+    - Redis 사용자 단위 Access Token `iat-cutoff` 저장
+    - 모든 기기 ZSET 및 Refresh Token 제거
+- Access Token의 `ver`가 현재 tokenVersion보다 낮으면 인증 거부
+- Role 변경 시 `User.updateRole()` 내부에서 tokenVersion 1회 증가
+- 전체 기기 로그아웃 이벤트는 `AFTER_COMMIT`에서 동기 처리
+    - 비동기 캐시 무효화 지연으로 기존 Access Token이 통과하는 race 방지
+- 로그아웃 API:
+    - Access Token 만료 상태에서도 호출 가능하도록 `permitAll`
+    - 동일 IP 기준 1분 20회 Rate Limit
+- 로그아웃 시:
+    - 현재 기기 Refresh Token 삭제
+    - 기기 ZSET 제거
+    - Device Context 삭제
+    - Access Token `jti` 블랙리스트 등록
+    - 브라우저의 `refresh_token` 쿠키 만료
+    - 브라우저의 `device_id` 쿠키 만료
+- 이미 만료된 Access Token은 블랙리스트 등록 생략
+- 로그아웃 정리 작업은 best-effort 방식:
+    - 한 작업 실패 시에도 나머지 작업 계속 수행
+- OAuth2 Provider:
+    - Kakao
+- OAuth2 사용자 식별:
+    - `provider`
+    - `providerId`
+    - `(provider, provider_id)` 복합 UNIQUE 인덱스 적용
+- 이미 OAuth2 계정이 연결된 사용자의 중복 연결 차단
+- OAuth2 사용자는 비밀번호 변경 시 기존 비밀번호 검증 생략
+- 사용자 응답에 OAuth2 여부와 Provider는 포함하지만 `providerId`는 노출하지 않음
+- OAuth2 로그인 성공 시:
+    - 기존 UUID `device_id` 재사용 또는 새 UUID 생성
+    - 신규 기기 IP / 계정 Rate Limit 선검증
+    - Access Token / Refresh Token 발급
+    - 기기 등록
+    - Refresh Token 저장
+    - Device Context 저장
+    - Refresh Token / Device ID를 HttpOnly 쿠키로 설정
+- OAuth2 Redirect URL에 Access Token 직접 노출 금지
+- OAuth2 인증 완료 후 무작위 일회용 code만 URL로 전달
+- OAuth2 일회용 code:
+    - TTL: 60초
+    - Redis 저장
+    - `GETDEL` 방식으로 1회만 소비
+    - 교환 후 재사용 불가
+- OAuth2 code 교환 API:
+    - `/api/auth/oauth2/exchange`
+- 쿠키 정책:
+    - `HttpOnly=true`
+    - `Secure`: 프로퍼티 기반, 기본값 `true`
+    - `SameSite`: 프로퍼티 기반, 기본값 `Lax`
+- Refresh Token 쿠키 Path:
+    - `/api/auth`
+- OAuth2 Device ID 쿠키 Path:
+    - `/`
+    - OAuth2 Callback 경로에서도 기존 기기 쿠키를 전달하기 위한 정책
+- 로컬 HTTP 환경에서는 `app.cookie.secure=false` 설정 가능
+- Redis Fail-Open 적용:
+    - 기기 등록
+    - 신규 기기 여부 확인
+    - 기기 활동 시각 갱신
+    - Device Context 저장 및 검증
+    - 일부 기기 목록 정리
+- Redis Fail-Open 발생 시 보안 로그 또는 감사 이벤트 기록
+- Redis Fail-Close 적용:
+    - Refresh Token 저장
+    - Refresh Token Rotation
+    - OAuth2 일회용 code 저장 및 소비
+    - Access Token 블랙리스트
+    - 사용자 단위 `iat-cutoff`
+- 클라이언트 IP 추출:
+    - 신뢰 프록시 요청에서만 Forwarded Header 신뢰
+    - 신뢰되지 않은 요청은 `remoteAddr` 사용
+    - Nginx 등 운영 프록시 주소를 `security.trusted-proxies`에 등록
+- 권한 정책:
+    - 일반 회원가입: BUYER / SELLER
+    - 관리자 API: ADMIN / SUPER_ADMIN
+    - 판매자 API: SELLER
+    - 구매 / 주문 / 리뷰 / 쿠폰 / 구독 API: BUYER
+    - 마이페이지 공통 API: 인증 사용자
+- 관리자 인터페이스와 일반 사용자 인터페이스 분리
+- Method Security 활성화
+- 권한 변경 시 기존 Access Token의 Role Claim을 그대로 사용하지 않도록 전체 세션 무효화

@@ -1,0 +1,45 @@
+## 관리자
+
+- 판매자 승인 / 반려
+- AdminActionType
+    - APPROVE (승인)
+    - REJECT (반려)
+    - FORCE_INACTIVE (강제 비활성화)
+    - REACTIVATE (정지 해제)
+    - GRANT_ADMIN((관리자 권한 부여: BUYER → ADMIN)
+    - REVOKE_ADMIN(관리자 권한 회수: ADMIN → BUYER)
+- 상품 승인 / 반려 → 판매자가 상품 수정 → 승인/반려(상품 정보: 사진, 정보 등) / 수정 요청 반려 시 기존 정보로 유지 / 반려 상태 업데이트 해서 다시 승인요청 가능하게끔 설정
+- 상품 강제 비활성화(FORCE_INACTIVE)
+- 관리자 승인/반려/정지 이력 저장
+- 처리 관리자 ID 및 사유 기록
+- SUPER_ADMIN 전용 기능:
+    - 관리자 권한 부여 / 목록 조회 / 권한 회수
+    - 전체 관리자 처리 이력 조회
+    - 포인트 시스템 통계 조회 (`GET /api/admin/points/stats`) — CHARGE/EARN/USE/EXPIRE/REFUND 합계 + 회계 항등식 검증
+    - 포인트 정합성 불일치 사용자 검출 (`GET /api/admin/points/inconsistencies`)
+    - 포인트 만료 배치 수동 실행 (`POST /api/admin/points/expire/run`)
+    - 정산 기능 연계 예정 (미확정)
+- ADMIN 가능 기능:
+    - 판매자 승인 / 반려 / 정지 / 복구
+    - 상품 승인 / 반려 / 강제 비활성화
+    - 쿠폰 생성 / 목록 조회
+    - 대시보드 조회 (`GET /api/admin/dashboard`) — 주문·배송 현황 통계
+    - 전체 주문 현황 조회 (`GET /api/admin/orders`) — 상태/날짜/키워드 필터
+    - 구독 상태 통계 및 전체 목록 조회 (`GET /api/admin/subscriptions`)
+    - 인기 검색어 조회 (`GET /api/admin/search/popular`) — 특정일, 최대 50위
+    - 본인 처리 이력만 조회
+- 판매자 정지 시 계정 정지 동시에 됨
+- 관리자 권한 부여 (GRANT_ADMIN) 제약:
+    - BUYER → ADMIN 전환만 가능 (SELLER 역할은 부여 불가)
+    - SUSPENDED / WITHDRAWN 상태 계정은 권한 부여 불가
+    - 이미 ADMIN 또는 SUPER_ADMIN이면 부여 불가
+- 관리자 권한 회수:
+    - User.role → BUYER로 변경 (status 변경 없음)
+    - 권한 회수된 계정은 로그인 가능, 일반 구매자로 전환
+    - 회수는 SUPER_ADMIN만 가능
+    - 대상이 반드시 ADMIN 역할이어야 함 (BUYER / SELLER는 회수 불가)
+    - SUPER_ADMIN 계정 권한 회수 불가
+    - 본인 계정 권한 회수 불가
+- GET /api/admin/action-histories 권한 분기:
+    - SUPER_ADMIN: 전체 관리자 이력 조회 가능
+    - ADMIN: 본인(actor_id = 자신) 이력만 조회 가능
