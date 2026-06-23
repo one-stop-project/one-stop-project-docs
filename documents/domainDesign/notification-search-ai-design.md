@@ -26,16 +26,23 @@ Notification 도메인은 주문, 결제, 쿠폰, 리뷰 등 서비스 이벤트
 ## 4. 알림 흐름
 
 ```text
-도메인 이벤트 발생
+도메인 이벤트 발생 (예: 결제 승인)
 ↓
-Notification 생성 및 DB 저장
+Kafka 토픽 발행 (payment.approved)
 ↓
-Redis Pub/Sub 발행
+Consumer 수신 (PaymentApprovedConsumer)
+↓
+Notification 생성 및 DB 저장 (eventId 중복 시 스킵 — 멱등성 보장)
+↓
+DB 커밋 이후 Redis Pub/Sub 발행
 ↓
 해당 사용자가 연결된 서버가 이벤트 수신
 ↓
 SSE로 클라이언트 전달
 ```
+
+> 현재 Kafka로 발행·소비되는 알림 이벤트는 `payment.approved`(결제 승인)이다.
+> Redis Pub/Sub 발행은 DB 트랜잭션 커밋 이후에 수행하여, 알림 저장이 롤백된 경우 실시간 알림만 먼저 나가는 상황을 막는다.
 
 ## 5. 기술 선택 근거
 

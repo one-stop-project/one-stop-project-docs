@@ -79,7 +79,10 @@
 
 **권한** SELLER | 본인 상품 order_item만 조회
 
-**Query** `status`, `from`, `to`, `page`, `size`
+**Query** `status`, `page`, `size` (`from`, `to`는 파라미터로 받지만 현재 필터에 적용되지 않음)
+
+> `status`가 `PENDING_PAYMENT`이면 배송 생성 전 단계라 빈 페이지를 반환. `status` 미지정 시 `PENDING_PAYMENT`를 제외한 전체 조회
+>
 
 **Response** `200`
 
@@ -91,6 +94,7 @@
       {
         "orderItemId": 1,
         "orderId": 1001,
+        "deliveryId": 501,
         "itemName": "맥북 프로 14인치 M3 (스페이스 그레이 / 512GB)",
         "quantity": 1,
         "price": 2190000,
@@ -128,10 +132,7 @@
 }
 ```
 
-> Kafka `order-confirmed` 발행 → 구매자 알림
->
-
-**에러** `ORDER_010` ORDERED 상태 아님
+**에러** `SELLER_007` 다른 판매자의 주문 | `SELLER_008` 이미 처리된 주문(ORDERED 상태 아님) | `SHIPPING_005` 배송 정보 없음
 
 ---
 
@@ -203,10 +204,10 @@
 }
 ```
 
-> DeliveryHistory 기록 + Kafka `shipping-started` 발행
+> DeliveryHistory(DEPARTURE) 기록, order_item CONFIRMED → SHIPPING 전이
 >
 
-**에러** `SHIPPING_001` INSTRUCT 상태 아님 | `SHIPPING_003` 운송장 번호 없음
+**에러** `SHIPPING_001` INSTRUCT 상태 아님 | `SHIPPING_006` 다른 판매자의 배송 | 택배사명·운송장 번호 누락 시 `400` (요청 검증)
 
 ---
 
@@ -238,11 +239,12 @@
 }
 ```
 
+> 이 엔드포인트는 `DELIVERING` / `FINAL_DELIVERY` 전이만 허용 (그 외 status는 `SHIPPING_002`)
+>
 > FINAL_DELIVERY 변경 시:
 >
-> - order_item.status → DELIVERED
-> - 포인트 자동 적립 (결제금액 1%)
-> - 리뷰 작성 가능 상태로 변경
-> - Kafka `shipping-delivered` 발행
+> - order_item.status → DELIVERED (리뷰 작성 가능 상태)
+> - 배송 완료 아웃박스 이벤트 저장(eventId `delivery-completed-{deliveryId}`) → 같은 트랜잭션 커밋 후 Kafka `delivery.completed` 토픽 발행
+> - Consumer가 수신해 포인트 적립 처리
 
-**에러** `SHIPPING_002` 허용되지 않는 상태 전이
+**에러** `SHIPPING_002` 허용되지 않는 상태 전이 | `SHIPPING_005` 배송 정보 없음 | `SHIPPING_006` 다른 판매자의 배송

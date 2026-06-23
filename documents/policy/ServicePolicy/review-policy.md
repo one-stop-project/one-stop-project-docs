@@ -19,5 +19,6 @@
 - 본인 리뷰만 삭제 가능
     - 리뷰 삭제는 soft delete(ACTIVE → DELETED) 처리
 - 리뷰 조회
-    - 상품 상세 페이지에서 상품별 목록 조회 가능
-    - 마이페이지에서 내가 작성한 리뷰 목록 조회 가능
+    - 마이페이지에서 내가 작성한 리뷰 목록 조회 가능 (`GET /api/users/me/reviews`)
+    - 판매자는 본인 상품의 리뷰를 전체/상품별/요약으로 조회 가능 (`GET /api/seller/reviews`, `GET /api/seller/products/{productId}/reviews`, `GET /api/seller/reviews/summary`)
+    - 구매자/공개용 "상품 상세 페이지 상품별 리뷰 목록 조회" API는 현재 미구현 (상품별 리뷰 조회는 SELLER 전용)

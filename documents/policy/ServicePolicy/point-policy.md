@@ -108,7 +108,7 @@ ORDER BY expire_at ASC, created_at ASC
 - USE / EXPIRE 이력의 remainingAmount는 사용하지 않거나 0으로 저장한다.
 - 만료 대상은 expireAt <= 현재 날짜이고 remainingAmount > 0인 포인트 이력이다.
 - 만료 처리는 스케줄러 또는 배치가 수행한다.
-- 만료 스케줄러는 매월 1일 실행한다.
+- 만료 스케줄러는 매일 새벽 3시(KST, `0 0 3 * * *`)에 실행한다.
 - 만료 처리 시 해당 적립/충전/복구 이력의 remainingAmount를 0으로 변경한다.
 - 만료된 금액만큼 사용자의 Point balance를 차감한다.
 - 만료 내역은 PointHistory에 EXPIRE 이력으로 기록한다.

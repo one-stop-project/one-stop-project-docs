@@ -13,7 +13,7 @@
 | content | String | ✅ | 10~1000자 |
 | images | File[] |  | 최대 5장 |
 
-**Response** `201`
+**Response** `200`
 
 ```json
 {
@@ -21,15 +21,17 @@
   "data": {
     "reviewId": 201,
     "productId": 42,
+    "orderItemId": 5,
     "rating": 5,
     "content": "배송도 빠르고 제품 상태도 완벽합니다.",
     "images": ["https://cdn.example.com/reviews/201/1.jpg"],
-    "createdAt": "2025-05-15T10:00:00"
+    "createdAt": "2025-05-15T10:00:00",
+    "updatedAt": "2025-05-15T10:00:00"
   }
 }
 ```
 
-**에러** `REVIEW_001` 배송 미완료 | `REVIEW_002` 중복 리뷰 | `REVIEW_003` 별점 범위 초과
+**에러** `REVIEW_001` 배송 미완료 | `REVIEW_002` 중복 리뷰 | `REVIEW_008` 이미지 5장 초과 | 별점 1~5 외 또는 내용 10~1000자 위반 시 `400` (요청 검증)
 
 ---
 
@@ -41,7 +43,7 @@
 | --- | --- | --- | --- |
 | rating | int | ✅ | 1~5 |
 | content | String | ✅ | 10~1000자 |
-| retainedImageUrls | String[] |  | 유지할 기존 이미지 URL |
+| retainedImageUrls | String[] | ✅ | 유지할 기존 이미지 URL (빈 배열 허용, 최대 5개) |
 |  newImages  | File[] |  | 새로 추가할 이미지 |
 - retainedImageUrls + newImages 합계 최대 5개
 
@@ -58,14 +60,18 @@
   "success": true,
   "data": {
     "reviewId": 201,
+    "productId": 42,
+    "orderItemId": 5,
     "rating": 4,
     "content": "수정된 리뷰 내용",
+    "images": ["https://cdn.example.com/reviews/201/1.jpg"],
+    "createdAt": "2025-05-15T10:00:00",
     "updatedAt": "2025-05-16T10:00:00"
   }
 }
 ```
 
-**에러** `REVIEW_006` 권한 없음, `REVIEW_007` 작성 후 30일 초과
+**에러** `REVIEW_005` 리뷰 없음/삭제됨 | `REVIEW_006` 권한 없음 | `REVIEW_007` 작성 후 30일 초과 | `REVIEW_008` 이미지 5장 초과
 
 ---
 
@@ -97,10 +103,12 @@
       {
         "reviewId": 201,
         "productId": 42,
-        "productName": "맥북 프로 14인치 M3",
+        "orderItemId": 5,
         "rating": 5,
         "content": "배송도 빠르고...",
-        "createdAt": "2025-05-15T10:00:00"
+        "images": ["https://cdn.example.com/reviews/201/1.jpg"],
+        "createdAt": "2025-05-15T10:00:00",
+        "updatedAt": "2025-05-15T10:00:00"
       }
     ],
     "page": 0, "size": 20, "totalElements": 5, "totalPages": 1

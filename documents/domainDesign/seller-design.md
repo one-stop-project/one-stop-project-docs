@@ -68,12 +68,11 @@ Seller 조회
 |---|---|
 | id | 판매자 식별자 |
 | userId | 연결된 사용자 |
-| businessName | 상호명 |
+| shopName | 상호명 |
 | businessNumber | 사업자번호 |
 | bankName | 정산 은행 |
-| accountNumber | 정산 계좌 |
-| approvalStatus | 승인 상태 |
-| createdAt/updatedAt | 생성/수정 시각 |
+| bankAccount | 정산 계좌 |
+| status | 승인 상태 (SellerStatus) |
 
 ### Seller Dashboard View
 

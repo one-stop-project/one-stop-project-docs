@@ -41,9 +41,10 @@
     - ACTIVE 상태 구독만 자동 결제 대상이다.
     - CANCELLED, EXPIRED 상태 구독은 자동 결제를 수행하지 않는다.
     - 최초 자동 결제일은 가입 시점으로부터 30일 후
-    - 자동 결제 성공 시:
-        - endAt을 기존 endAt 기준 30일 연장
-        - nextPaymentDate를 기존 nextPaymentDate 기준 30일 연장
+    - 자동 결제 성공 시(renew):
+        - endAt을 결제 처리 시각(now) 기준 30일 후로 갱신
+        - nextPaymentDate를 결제 처리 시각(now) 기준 30일 후로 갱신
+        - (기존 endAt/nextPaymentDate 값에 누적 연장하는 방식이 아님 — now + 30일로 재설정)
         - 상태 유지(ACTIVE)
     - 자동 결제 실패 시:
         - 구독 상태를 EXPIRED로 변경

@@ -11,8 +11,8 @@ Order/Payment 도메인은 사용자의 주문 생성, 결제 승인, 결제 이
 | 책임 | 설명 |
 |---|---|
 | 주문 생성 | 장바구니/상품 기준 주문 생성 |
-| 주문 상태 관리 | PENDING, PAID, CANCELED 등 상태 관리 |
-| 결제 승인 | 외부 PG 승인 결과 검증 및 저장 |
+| 주문 상태 관리 | PENDING_PAYMENT, PAID, CANCELLED 상태 관리 |
+| 결제 승인 | Mock 결제 승인 결과 검증 및 저장 |
 | 중복 결제 방지 | 동일 주문에 대한 중복 결제 요청 차단 |
 | 결제 이력 관리 | 결제 성공/실패/취소 기록 |
 | 후속 이벤트 분리 | 포인트 적립, 알림, 장바구니 정리 등을 이벤트로 분리 |
@@ -44,9 +44,9 @@ Order PENDING 생성
 ↓
 주문 상태 검증
 ↓
-동일 주문 결제 Lock 획득
+주문 단위 비관적 락 획득 (findByIdWithLock)
 ↓
-PG 결제 검증
+Mock 결제 검증 (주문 금액 일치)
 ↓
 Payment 기록 저장
 ↓
@@ -65,8 +65,17 @@ Outbox 이벤트 저장
 |---|---|
 | id | 주문 식별자 |
 | userId | 주문 사용자 |
-| status | 주문 상태 |
-| totalAmount | 총 주문 금액 |
+| status | 주문 상태 (PENDING_PAYMENT/PAID/CANCELLED) |
+| totalPrice | 총 주문 금액 |
+| discountPrice | 총 할인 금액 (쿠폰) |
+| usedPoint | 사용 포인트 |
+| subscriptionDiscount | 구독 할인 금액 |
+| deliveryFee | 배송비 |
+| finalPrice | 최종 결제 금액 |
+| receiverName/receiverPhone/receiverAddress | 수령인 정보 |
+| deliveryMessage | 배송 요청사항 |
+| orderType | 주문 유형 (DIRECT/CART) |
+| userCouponId/subscriptionId | 적용 쿠폰/구독 |
 | createdAt/updatedAt | 생성/수정 시각 |
 
 ### Payment
@@ -74,11 +83,13 @@ Outbox 이벤트 저장
 | 필드 | 설명 |
 |---|---|
 | id | 결제 식별자 |
-| orderId | 연결 주문 |
-| paymentKey | PG 결제 식별자 |
+| orderId | 연결 주문 (주문 1:1) |
+| paymentKey | Mock 결제 키 |
 | amount | 결제 금액 |
-| status | 결제 상태 |
+| method | 결제 수단 (MOCK/CARD/POINT) |
+| status | 결제 상태 (READY/PAID/FAILED/CANCELLED) |
 | approvedAt | 승인 시각 |
+| cancelledAt | 취소 시각 |
 
 ### Outbox Event
 
@@ -93,15 +104,13 @@ Outbox 이벤트 저장
 
 ## 5. 기술 선택 근거
 
-### Redisson Lock
+### 동시성 제어 (DB 락 기반)
 
-동일 주문에 대해 결제 승인 요청이 중복으로 들어오면 중복 결제가 발생할 수 있다. 이를 방지하기 위해 주문 단위 분산락을 사용한다.
+동일 주문에 대해 결제 승인 요청이 중복으로 들어오면 중복 결제가 발생할 수 있다. 별도의 분산락(Redisson) 대신 DB 락으로 제어한다.
 
-```text
-payment:order:{orderId}
-```
-
-Lock 범위는 결제 승인 검증과 주문/결제 상태 변경 구간으로 제한한다.
+- **결제 승인 / 주문 취소**: 주문을 `PESSIMISTIC_WRITE` 비관적 락(`findByIdWithLock`)으로 조회하여 동일 주문에 대한 동시 처리를 직렬화한다. 락 획득 실패는 `ORDER_013`으로 응답한다.
+- **포인트 차감**: 결제 트랜잭션에 합류시키고, 포인트 잔액에 낙관적 락을 적용한다. 충돌 시 `PaymentRetryFacade`가 결제 트랜잭션 전체를 롤백 후 최대 3회 재시도하며, 재시도 소진 시 `PAYMENT_010`으로 응답한다.
+- **재고 차감**: 주문 생성 시 상품 옵션을 `item_id` 오름차순으로 정렬해 비관적 락(`findAllByIdInForUpdate`)으로 일괄 조회하여 다중 상품 주문의 데드락 가능성을 줄인다.
 
 ### Transactional Outbox
 
@@ -115,7 +124,7 @@ Lock 범위는 결제 승인 검증과 주문/결제 상태 변경 구간으로 
 
 ## 6. 정합성 고려사항
 
-- 주문 금액과 PG 결제 금액이 일치해야 한다.
+- 주문 최종 금액과 요청 결제 금액이 일치해야 한다.
 - 결제 성공 후 Order와 Payment 상태는 함께 변경되어야 한다.
 - 동일 주문에 대한 중복 결제는 차단한다.
 - 결제 성공 후 후속 작업 실패는 결제 트랜잭션을 rollback시키지 않는다.
@@ -125,11 +134,15 @@ Lock 범위는 결제 승인 검증과 주문/결제 상태 변경 구간으로 
 
 | 상황 | 처리 |
 |---|---|
-| 주문 없음 | ORDER_NOT_FOUND |
-| 이미 결제된 주문 | PAYMENT_ALREADY_APPROVED |
-| 결제 금액 불일치 | PAYMENT_AMOUNT_MISMATCH |
-| PG 승인 실패 | PAYMENT_APPROVAL_FAILED |
-| Lock 획득 실패 | PAYMENT_IN_PROGRESS |
+| 주문 없음 | ORDER_006 |
+| 본인 주문 아님 | ORDER_007 |
+| 이미 결제된 주문 | PAYMENT_001 |
+| 결제 금액 불일치 | PAYMENT_002 |
+| 이미 처리된 결제 요청 | PAYMENT_003 |
+| 결제 대기 상태가 아닌 주문 | PAYMENT_011 |
+| 취소된 주문 결제 시도 | PAYMENT_008 |
+| 포인트 낙관적 락 재시도 소진 | PAYMENT_010 |
+| 주문 비관적 락 충돌 | ORDER_013 |
 | 후속 이벤트 처리 실패 | Outbox 재처리 대상 |
 
 ## 8. 한계 및 후속 개선
