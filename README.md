@@ -116,27 +116,23 @@ documents
 | [Test](./documents/test) | 테스트 케이스 및 커버리지 |
 ---
 
-# 🧠 주요 기술 키워드
+# 🧠 핵심 기술 키워드
 
-* Java 21
-* Spring Boot 3
-* Spring Security
-* JWT
-* QueryDSL
-* MySQL
-* Redis
-* Apache Kafka
-* Transactional Outbox
-* SSE
-* Spring AI
-* Resilience4j
-* AWS ECS Fargate
-* Docker
-* GitHub Actions
-* Prometheus
-* Grafana
-* K6
-* Toss Payments
+`Spring Boot`
+`Spring Security`
+`JWT`
+`Redis`
+`Kafka`
+`QueryDSL`
+`Transactional Outbox`
+`Distributed Lock`
+`Resilience4j`
+`Spring AI`
+`AWS EC2`
+`Google Gemini`
+`K6`
+`DDD`
+`Modular Monolith`
 
 ---
 
