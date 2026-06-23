@@ -632,7 +632,7 @@
 ## 🔗 테이블 간 관계 (Relations)
 
 ```
-seller.user_id (1) ── (1) user.user_id
+seller.user_id (1) ── (1) users.user_id
 category.parent_id (N) ── (1) category.category_id
 
 product.seller_id (N) ── (1) seller.seller_id
@@ -644,13 +644,13 @@ inventory_history.item_id (N) ── (1) product_item.item_id
 product_tag.product_id (N) ── (1) product.product_id
 related_product.base_product_id (N) ── (1) product.product_id
 related_product.target_product_id (N) ── (1) product.product_id
-search_history.user_id (N) ── (1) user.user_id
+search_history.user_id (N) ── (1) users.user_id
 
-cart.user_id (1) ── (1) user.user_id
+cart.user_id (1) ── (1) users.user_id
 cart_item.cart_id (N) ── (1) cart.cart_id
 cart_item.item_id (N) ── (1) product_item.item_id
 
-orders.user_id (N) ── (1) user.user_id
+orders.user_id (N) ── (1) users.user_id
 orders.subscription_id (N) ── (1) subscription.subscription_id
 orders.user_coupon_id (N) ── (1) user_coupon.user_coupon_id
 order_item.order_id (N) ── (1) orders.order_id
@@ -662,26 +662,26 @@ order_cancel_history.order_item_id (N) ── (1) order_item.order_item_id
 delivery.order_item_id (1) ── (1) order_item.order_item_id
 delivery_history.delivery_id (N) ── (1) delivery.delivery_id
 
-review.user_id (N) ── (1) user.user_id
+review.user_id (N) ── (1) users.user_id
 review.order_item_id (1) ── (1) order_item.order_item_id
 review.product_id (N) ── (1) product.product_id
 review_image.review_id (N) ── (1) review.review_id
 product_review_summary.product_id (1) ── (1) product.product_id
 
-point.user_id (1) ── (1) user.user_id
+point.user_id (1) ── (1) users.user_id
 point_history.point_id (N) ── (1) point.point_id
-point_history.user_id (N) ── (1) user.user_id
+point_history.user_id (N) ── (1) users.user_id
 point_history.order_id (N) ── (1) orders.order_id
 point_usage_detail.use_history_id (N) ── (1) point_history.history_id
 point_usage_detail.source_history_id (N) ── (1) point_history.history_id
 
-subscription.user_id (N) ── (1) user.user_id
+subscription.user_id (N) ── (1) users.user_id
 
-user_coupon.user_id (N) ── (1) user.user_id
+user_coupon.user_id (N) ── (1) users.user_id
 user_coupon.coupon_id (N) ── (1) coupon.coupon_id
 user_coupon.used_order_id (1) ── (1) orders.order_id
 
-payment.order_id (1) ── (1) orders.order_id
+payments.order_id (1) ── (1) orders.order_id
 
-notification.user_id (N) ── (1) user.user_id
+notification.user_id (N) ── (1) users.user_id
 ```
