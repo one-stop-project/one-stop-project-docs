@@ -48,6 +48,8 @@
 | 인증 (Auth) | [auth-api.md](./domainApi/auth-api.md) |
 | 회원 (User) | [user-api.md](./domainApi/user-api.md) |
 | 상품 (Product) | [product-api.md](./domainApi/product-api.md) |
+| 카테고리 (Category) | [category-api.md](./domainApi/category-api.md) |
+| 검색 (Search) | [search-api.md](./domainApi/search-api.md) |
 | 장바구니 (Cart) | [cart-api.md](./domainApi/cart-api.md) |
 | 주문 / 결제 (Order / Payment) | [order-payment-api.md](./domainApi/order-payment-api.md) |
 | 배송 (Delivery) | [delivery-api.md](./domainApi/delivery-api.md) |
