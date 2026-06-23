@@ -150,14 +150,13 @@ documents
 
 # 👥 팀원
 
-| 이름  | 역할             | 담당 도메인                              |
-| --- |----------------|-------------------------------------|
-| 정은지 | 팀장  / 배포       | Admin, Infrastructure, AI           |
-| 임호진 | 백엔드 · 프론트엔드 개발 | Auth, User, Seller, Security        |
-| 정지훈 | 백엔드 / 테스트      | Order, Cart, Payment, Coupon, Point |
-| 이중현 | 백엔드 · 프론트엔드 개발 | Product, Category, Search           |
-| 김예은 | 부팀장 / 서기       | Delivery, Review, Subscription      |
-
+| 이름 | 역할 | 핵심 기술 |
+| --- | ------------------------ |------------------------------------------------------------------------------------------------------------------------|
+| 정은지 | 팀장 / Infra / AI | 관리자 기능, GitHub Actions 기반 CI/CD, Prometheus·Grafana 모니터링, Spring AI(Gemini) Tool Calling, AI 연관상품 추천·리뷰 요약 |
+| 임호진 | Auth / Seller / Member | 인증·인가·보안 아키텍처, JWT + Refresh Token Rotation(RTR), OAuth2(Kakao), Redis Fixed Window Rate Limit, 보안 감사 로그, 회원·판매자 라이프사이클 |
+| 정지훈 | Cart / Order / Payment / Coupon / Notification | 장바구니 → 주문 → 결제 구매 플로우, 비회원 장바구니 Redis Hash + ZSet, 쿠폰(Lua·DECR·Redisson Lock)·포인트(낙관적 락·재시도) 정합성, Outbox-Kafka 이벤트 처리, Redis Pub/Sub + SSE 실시간 알림 |
+| 이중현 | Product / Search | 상품·카테고리, QueryDSL 기반 상품 검색, Redis 캐싱, 인기 랭킹·검색어·조회수 집계, MySQL FULLTEXT 인덱스, AI 기반 더미 데이터 |
+| 김예은 | Delivery / Review / Subscription | 배송 상태 관리, 리뷰 정합성, 정기결제 자동화, Outbox-Kafka 이벤트 처리(배송 완료 → 포인트 적립) |
 ---
 
 # 📌 문서 관리 기준
