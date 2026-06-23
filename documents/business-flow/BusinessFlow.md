@@ -31,7 +31,7 @@ flowchart TD
     B -->|"GET /api/products/productId"| C[상품 상세]
     C -->|Redis INCR 조회수| C
     C -->|"GET /api/products/productId/reviews"| D{리뷰 확인}
-    C -->|"GET /api/products/productId/reviews/summary"| E[AI 리뷰 요약]
+    C -->|"GET /api/products/productId/reviews/ai-summary"| E[AI 리뷰 요약]
 
     %% 사용자의 구매/장바구니 액션 분기
     C -->|장바구니 클릭| Action_Cart[장바구니 담기 요청]
@@ -45,9 +45,9 @@ flowchart TD
     Login -->|Access Token 발급| Auth_User
     
     %% 인증 필요 영역 (User API)
-    Auth_User -->|"인증 완료 (장바구니 경로)"| F["장바구니 담기<br/>POST /api/cart/items"]
+    Auth_User -->|"인증 완료 (장바구니 경로)"| F["장바구니 담기<br/>POST /api/carts/items"]
     F --> G[장바구니]
-    G -->|"GET /api/cart<br/>Header: Authorization"| H{주문할 상품 선택}
+    G -->|"GET /api/carts<br/>Header: Authorization"| H{주문할 상품 선택}
 
     %% 장바구니 일부/전체 결제 분기
     H -->|전체 선택| H1[주문서 작성]
@@ -62,7 +62,7 @@ flowchart TD
     J -->|status: PAID| K[주문 완료]
 
     %% 장바구니 후처리
-    K -->|구매가 완료된 항목만| Cart_Cleanup["장바구니 비우기<br/>DELETE /api/cart/items"]
+    K -->|구매가 완료된 항목만| Cart_Cleanup["장바구니 비우기<br/>DELETE /api/carts/items"]
     
    J -->|"결제 트랜잭션 내"| L[배송 ACCEPT 생성]
     
@@ -78,7 +78,7 @@ flowchart TD
     O --> P["배송완료<br/>FINAL_DELIVERY"]
 
     %% 서버 내부 로직 및 사용자 인증 영역
-    P -->|"Kafka: shipping-delivered"| Q["포인트 자동 적립<br/>결제금액 1%"]
+    P -->|"Kafka: delivery.completed"| Q["포인트 자동 적립<br/>결제금액 1%"]
     P -->|"GET /api/users/me/reviewable<br/>Header: Authorization"| R[리뷰 작성 가능]
     R -->|"POST /api/reviews<br/>Header: Authorization"| S[리뷰 작성 완료]
 
@@ -109,7 +109,7 @@ flowchart TD
 | --- | --- | --- |
 | 검색 | `GET /api/products` | MySQL FULLTEXT + Redis ZINCRBY(인기검색어) |
 | 상세 | `GET /api/products/{id}` | Redis INCR(조회수) + Caffeine(상품캐시) |
-| 장바구니 | `POST /api/cart/items` | DB Cart + CartItem (UNIQUE 제약) |
+| 장바구니 | `POST /api/carts/items` | DB Cart + CartItem (UNIQUE 제약) |
 | 주문 | `POST /api/orders` | 비관적 락(재고 선점) + item_id ASC(데드락 방지) |
 | 결제 | `POST /api/payments` | 토스페이먼츠 + 낙관적 락(포인트) + Outbox |
 | 리뷰 | `POST /api/reviews` | order_item_id UNIQUE + S3(이미지) |
@@ -143,15 +143,15 @@ flowchart TD
         H --> I{"토스페이먼츠 승인"}
         I -->|실패| I1["PAYMENT_002<br/>PG 승인 실패<br/>주문 취소 + 재고 복구 +<br/>status: CANCELLED"]
         I -->|성공| J["포인트 차감<br/>@Version 낙관적 락"]
-        J -->|부족| J1["POINT_001<br/>PG 승인 취소 +<br/>재고 복구 +<br/>status: CANCELLED"]
+        J -->|부족| J1["POINT_002<br/>PG 승인 취소 +<br/>재고 복구 +<br/>status: CANCELLED"]
         J -->|성공| K["쿠폰 차감<br/>Redis 분산락"]
         K -->|실패| K1["COUPON_001<br/>PG 승인 취소 +<br/>포인트 복구 +<br/>재고 복구 +<br/>status: CANCELLED"]
         K -->|성공| L["결제 완료 +<br/>status: PAID"]
         L --> L2["배송 생성<br/>OrderItem → ORDERED<br/>Delivery → ACCEPT"]
-        L2 --> M["Outbox INSERT<br/>topic: order-paid"]
+        L2 --> M["Outbox INSERT<br/>topic: payment.approved"]
     end
 
-    M --> N["Kafka: order-paid"]
+    M --> N["Kafka: payment.approved"]
     N --> P["Consumer: 구매자 결제 완료 알림 (SSE)"]
 
     style TX fill:#E6F1FB,stroke:#185FA5
@@ -194,7 +194,7 @@ flowchart TD
     Auth_Seller -->|권한 확인됨| Dashboard["판매자 대시보드<br/>SSE 실시간 연결"]
 
     %% 비동기 주문 알림 수신
-    A["Kafka: order-paid 수신"] -->|SSE 푸시 알림| Dashboard
+    A["Kafka: payment.approved 수신"] -->|SSE 푸시 알림| Dashboard
 
     %% 주문 확인 및 처리 (인가된 요청)
     Dashboard --> C["GET /api/seller/orders<br/>status=ORDERED<br/>Header: Authorization"]
@@ -218,7 +218,7 @@ flowchart TD
     L --> M["PATCH /api/seller/deliveries/{id}/status<br/>status=FINAL_DELIVERY<br/>Header: Authorization"]
     M --> N["delivery: FINAL_DELIVERY<br/>order_item: DELIVERED"]
 
-    N --> O["Kafka: shipping-delivered"]
+    N --> O["Kafka: delivery.completed"]
     O --> P["PointConsumer<br/>결제금액 1% 적립"]
     O --> Q["NotificationConsumer<br/>배송완료 알림"]
     O --> R["리뷰 작성 가능"]
@@ -400,7 +400,7 @@ flowchart TD
     G -->|위조| G2["401 AUTH_009"]
     G -->|유효| H{"RBAC 체크<br/>role 확인"}
 
-    H -->|BUYER| H1["/api/orders/**<br/>/api/cart/**<br/>/api/reviews/**"]
+    H -->|BUYER| H1["/api/orders/**<br/>/api/carts/**<br/>/api/reviews/**"]
     H -->|SELLER| H2["/api/seller/**<br/>+ BUYER 권한"]
     H -->|ADMIN| H3["/api/admin/**<br/>+ ADMIN 권한"]
     H -->|SUPER_ADMIN| H4["/api/admin/**<br/>+ 모든 권한"]
@@ -524,7 +524,7 @@ stateDiagram-v2
     REJECTED --> TEMP_SAVED : 판매자 수정
 
     APPROVED --> DISCONTINUED : DELETE /seller/products/{id}
-    APPROVED --> FORCE_INACTIVE : DELETE /admin/products/{id} (강제)
+    APPROVED --> FORCE_INACTIVE : PATCH /admin/products/{id}/force-inactive (강제)
 
     note right of APPROVED : 구매자 검색에 노출
     note right of TEMP_SAVED : 임시 저장 (비공개)
@@ -617,7 +617,7 @@ flowchart LR
 
 flowchart TD
     subgraph "리뷰 요약 (Spring AI)"
-        A["리뷰 10개 이상 누적<br/>또는 관리자 트리거"] --> B["POST /api/ai/reviews/{id}/summarize"]
+        A["리뷰 10개 이상 누적<br/>또는 관리자 트리거"] --> B["POST /api/products/{id}/reviews/ai-summary/refresh"]
         B --> C["Spring AI<br/>카테고리별 프롬프트 분기"]
         C -->|의류| C1["착용감/사이즈/소재"]
         C -->|전자제품| C2["성능/배터리/호환성"]
@@ -625,7 +625,7 @@ flowchart TD
         C1 --> D["review_summary 저장<br/>pros, cons, keywords, sentiment"]
         C2 --> D
         C3 --> D
-        D --> E["GET /products/{id}/reviews/summary<br/>Redis 캐시 우선"]
+        D --> E["GET /api/products/{id}/reviews/ai-summary<br/>Redis 캐시 우선"]
     end
 
     subgraph "추천 (5단계)"
@@ -677,7 +677,7 @@ flowchart TD
     H -->|갱신| J["자동 결제<br/>기존 구독 갱신<br/>endAt: +30일 연장<br/>nextPaymentDate: +30일 연장"]
 
     G --> K["endAt 이후<br/>혜택 종료"]
-    I --> L["GET /subscriptions/me<br/>history에 이력 보존"]
+    I --> L["GET /api/subscriptions/me<br/>history에 이력 보존"]
 
     style C fill:#EAF3DE,stroke:#639922
     style G fill:#FAEEDA,stroke:#854F0B
@@ -732,7 +732,7 @@ flowchart TD
         B --> C["TX Commit"]
     end
 
-    subgraph "3-Phase 스케줄러 (매 5초)"
+    subgraph "3-Phase 스케줄러 (매 1초)"
         D["Phase 1: 짧은 TX<br/>PENDING → PROCESSING<br/>SKIP LOCKED"] --> E["Phase 2: TX 없음<br/>Kafka send.get(10s)<br/>DB 커넥션 미점유"]
         E --> F{"전송 성공?"}
         F -->|성공| G["Phase 3: 짧은 TX<br/>status → SENT"]
@@ -829,7 +829,7 @@ flowchart LR
 ```Mermaid
 
 flowchart TD
-    subgraph "매 5초"
+    subgraph "매 1초"
         S1["Outbox 3-Phase<br/>PENDING → Kafka 전송"]
     end
 

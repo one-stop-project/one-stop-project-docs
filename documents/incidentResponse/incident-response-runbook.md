@@ -434,7 +434,7 @@ sudo journalctl -u one-stop-main -n 100 --no-pager | grep -i "hikari\|mysql\|sql
 
 ### 복구 후 점검
 
-- 주문 상태가 PENDING에 머문 건 없는지 확인
+- 주문 상태가 PENDING_PAYMENT에 머문 건 없는지 확인
 - 결제 승인 후 내부 저장 실패 건 확인
 - 포인트 차감/적립 이력 불일치 여부 확인
 - 배치 작업 중단 여부 확인
@@ -863,13 +863,13 @@ WHERE role IN ('ADMIN', 'SUPER_ADMIN');
 
 - 사용자가 상품을 구매할 수 없음
 - 주문은 생성되었지만 결제 페이지로 이동하지 못함
-- 주문 상태가 `PENDING`에 머무름
+- 주문 상태가 `PENDING_PAYMENT`에 머무름
 - 재고 차감 또는 쿠폰/포인트 선점 상태와 주문 상태가 불일치할 수 있음
 
 ### 감지 기준
 
 - 주문 생성 API 4xx/5xx 증가
-- 주문 상태가 장시간 `PENDING`에 머무는 데이터 증가
+- 주문 상태가 장시간 `PENDING_PAYMENT`에 머무는 데이터 증가
 - 동일 사용자의 중복 주문 생성
 - 주문 생성 후 결제 요청이 이어지지 않는 케이스 증가
 
@@ -885,7 +885,7 @@ DB에서 주문 상태를 확인합니다.
 ```sql
 SELECT id, user_id, status, created_at
 FROM orders
-WHERE status = 'PENDING'
+WHERE status = 'PENDING_PAYMENT'
 ORDER BY created_at DESC;
 ```
 
@@ -903,7 +903,7 @@ ORDER BY created_at DESC;
 
 - 주문 생성과 결제 요청 사이의 상태 전이 명확화
 - 주문 생성 API 멱등성 검토
-- 장시간 `PENDING` 주문 정리 배치 도입
+- 장시간 `PENDING_PAYMENT` 주문 정리 배치 도입
 - 주문 생성 실패 로그에 userId, itemId, orderId 포함
 
 ---
@@ -916,15 +916,15 @@ ORDER BY created_at DESC;
 
 ### 영향 범위
 
-- 사용자는 결제 완료로 인식하지만 내부 주문은 PENDING 상태
+- 사용자는 결제 완료로 인식하지만 내부 주문은 PENDING_PAYMENT 상태
 - 결제 금액과 주문 상태 불일치
 - 포인트/쿠폰 사용 이력 불일치
 - 환불 또는 보상 트랜잭션 필요
 
 ### 감지 기준
 
-- PG 승인 성공 로그는 있으나 내부 payment 상태가 COMPLETED가 아님
-- 주문 상태가 PENDING에 장시간 머무름
+- PG 승인 성공 로그는 있으나 내부 payment 상태가 PAID가 아님
+- 주문 상태가 PENDING_PAYMENT에 장시간 머무름
 - 결제 승인 시간과 내부 저장 시간이 불일치
 - 결제 실패 예외 로그 발생
 
@@ -1595,7 +1595,7 @@ sudo grep -n "images\|uploads" /etc/nginx/conf.d/one-stop.conf
 
 - 포인트 만료 누락
 - 구독 결제 누락 또는 중복 결제
-- 오래된 PENDING 주문 누적
+- 오래된 PENDING_PAYMENT 주문 누적
 - 통계 데이터 불일치
 - 대량 데이터 처리 중 DB 부하 증가
 

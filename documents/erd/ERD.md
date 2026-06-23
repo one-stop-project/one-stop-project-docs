@@ -2,7 +2,7 @@
 
 ## 1. 회원 (User & Seller)
 
-### `user` (구매자/기본 회원)
+### `users` (구매자/기본 회원)
 
 | **Column** | **Type** | **Attributes** | **Description** |
 | --- | --- | --- | --- |
@@ -12,10 +12,21 @@
 | `name` | varchar(50) | not null | 이름 |
 | `phone` | varchar(20) |  | 전화번호 |
 | `address` | varchar(255) |  | 기본 배송지 주소 |
-| `role` | varchar(20) | not null | `BUYER` / `SELLER` / `ADMIN`  / `SPERADMIN` |
+| `detail_address` | varchar(255) |  | 상세 주소 |
+| `role` | varchar(20) | not null | `BUYER` / `SELLER` / `ADMIN` / `SUPER_ADMIN` |
 | `status` | varchar(20) | not null, default: `ACTIVE` | `ACTIVE` / `SUSPENDED` / `WITHDRAWN` |
+| `provider` | varchar(20) |  | OAuth2 Provider (kakao/google/naver), 일반 가입은 null |
+| `provider_id` | varchar(255) |  | OAuth2 Provider 측 사용자 ID |
+| `last_login_at` | datetime |  | 마지막 로그인 시각 |
+| `token_version` | int | not null, default: 0 | 토큰 무효화 기준 버전 |
 | `created_at` | datetime | not null | 가입 일시 |
 | `updated_at` | datetime | not null | 수정 일시 |
+
+> 💡 **Indexes**
+>
+> - `idx_user_email`: UNIQUE (email)
+> - `idx_user_provider`: UNIQUE (provider, provider_id)
+> - `idx_user_status`: (status)
 
 ### `seller` (판매자 정보)
 
@@ -25,10 +36,9 @@
 | `user_id` | bigint | unique, not null | 연결된 user_id (1:1) |
 | `shop_name` | varchar(100) | not null | 상호명 |
 | `business_number` | varchar(20) | not null | 사업자 등록번호 |
+| `bank_name` | varchar(50) |  | 정산용 은행명 |
 | `bank_account` | varchar(50) |  | 정산용 계좌번호 |
-| `status` | varchar(20) | not null, default: `PENDING` | `PENDING` / `APPROVED` / `REJECTED` |
-| `created_at` | datetime | not null | 신청 일시 |
-| `updated_at` | datetime | not null | 수정 일시 |
+| `status` | varchar(20) | not null, default: `PENDING` | `PENDING` / `APPROVED` / `REJECTED` / `SUSPENDED` |
 
 ---
 
@@ -40,8 +50,13 @@
 | --- | --- | --- | --- |
 | `category_id` | bigint | PK, increment | 카테고리 ID |
 | `name` | varchar(50) | not null | 카테고리명 |
-| `parent_id` | bigint |  | 상위 카테고리 ID (자기 참조)
-ㄴ>  |
+| `parent_id` | bigint |  | 상위 카테고리 ID (자기 참조) |
+| `created_at` | datetime | not null | 생성일 |
+| `updated_at` | datetime | not null | 수정일 |
+
+> 💡 **Indexes**
+>
+> - `uk_category_parent_name`: UNIQUE (parent_id, name) — 같은 부모 아래 카테고리명 중복 방지
 
 ### `product` (상품 기본 정보)
 
@@ -69,7 +84,8 @@
 >
 > - `idx_product_seller`: (seller_id, status)
 > - `idx_product_status`: (status, created_at)
-> - `idx_product_name_fulltext`: FULLTEXT(name, description)
+> - `idx_product_sales`: (status, sales_count)
+> - `idx_product_name_fulltext`: FULLTEXT(name, description) — DB 마이그레이션으로 별도 관리
 
 ### `product_item` (상품 옵션 및 재고)
 
@@ -91,6 +107,8 @@
 > 💡 **Indexes**
 >
 > - `idx_item_product`: (product_id, status)
+> - `idx_item_status_price`: (status, price)
+> - `uk_product_item_options`: UNIQUE (product_id, option_value_1, option_value_2, option_value_3, option_value_4, option_value_5) — 동일 상품 내 옵션 조합 중복 방지
 
 ### `inventory_history` (재고 변동 이력)
 
@@ -107,6 +125,7 @@
 | `ref_id` | bigint | null | 참조 ID (예: order_id) |
 | `created_by` | bigint | not null | 처리자 user_id |
 | `created_at` | datetime | not null | 변동 시각 |
+| `updated_at` | datetime | not null | 수정일 |
 
 > 💡 **타입별 사용**
 >
@@ -128,6 +147,12 @@
 | `image_url` | varchar(500) | not null | 이미지 S3 URL |
 | `display_order` | int | not null | 이미지 노출 순서 (1이 썸네일) |
 | `status` | varchar(20) | not null, default : ACTIVE | ACTIVE / DELETED (부분 삭제용) |
+| `created_at` | datetime | not null | 생성일 |
+| `updated_at` | datetime | not null | 수정일 |
+
+> 💡 **Indexes**
+>
+> - `idx_pi_product_status_order`: (product_id, status, display_order)
 
 ### `product_category_mapping` (상품-카테고리 N:N 매핑 테이블)
 
@@ -136,6 +161,8 @@
 | `mapping_id` | bigint | PK, increment | 매핑 고유 ID |
 | `product_id` | bigint | not null | 상품 ID |
 | `category_id` | bigint | not null | 카테고리 ID |
+| `created_at` | datetime | not null | 생성일 |
+| `updated_at` | datetime | not null | 수정일 |
 
 > 💡 **Indexes**
 >
@@ -143,11 +170,23 @@
 > - `idx_pcm_category`: (category_id, product_id)
 > - `uk_pcm`: UNIQUE (product_id, category_id) — 중복 매핑 방지
 
+### `product_tag` (상품 태그 — `@ElementCollection`)
+
+| **Column** | **Type** | **Attributes** | **Description** |
+| --- | --- | --- | --- |
+| `product_id` | bigint | not null | 소속 상품 ID |
+| `tag` | varchar(30) | not null | 태그 (trim + 소문자 정규화 저장) |
+
+> 💡 **Indexes**
+>
+> - `idx_product_tag_product_tag`: (product_id, tag)
+
 ### `search_history` (인기 검색어 관리를 위한 로그 테이블)
 
 | **Column** | **Type** | **Attributes** | **Description** |
 | --- | --- | --- | --- |
 | `search_id` | bigint | PK, increment | 검색 로그 ID |
+| `event_id` | varchar(36) | unique | 재처리 중복 INSERT 방지 멱등키 (레거시 행은 null 가능) |
 | `keyword` | varchar(100) | not null | 검색어 |
 | `user_id` | bigint | null | 검색한 유저 ID (비회원은 null) |
 | `searched_at` | datetime | not null | 검색 일시 |
@@ -156,6 +195,7 @@
 >
 > - `idx_sh_searched_at`: (searched_at)
 > - `idx_sh_keyword`: (keyword, searched_at)
+> - `uk_sh_event_id`: UNIQUE (event_id)
 
 ### `related_product` (연관 상품 매핑 테이블)
 
@@ -164,7 +204,9 @@
 | relation_id | bigint | PK, increment | 연관 고유 ID |
 | base_product_id | bigint | not null | 기준 상품 ID |
 | target_product_id | bigint | not null | 연관 추천되는 상품 ID |
-| relation_weight | double | default : 0 | 연관성 가중치 (AI가 분석한 연관도 점수 등) |
+| relation_weight | double | not null, default : 0 | 연관성 가중치 (AI가 분석한 연관도 점수 등) |
+| created_at | datetime | not null | 생성일 |
+| updated_at | datetime | not null | 수정일 |
 
 ---
 
@@ -281,10 +323,6 @@
 | `created_at` | datetime | not null |  |
 | `updated_at` | datetime | not null |  |
 
-> 💡 **Indexes**
->
-> - `idx_delivery_status`: (status, updated_at)
-
 ### `delivery_history` (배송 상태 이력)
 
 | **Column** | **Type** | **Attributes** | **Description** |
@@ -293,10 +331,8 @@
 | `delivery_id` | bigint | not null | 배송 ID |
 | `status` | varchar(30) | not null | 변경된 상태 |
 | `changed_at` | datetime | not null | 변경 일시 |
-
-> 💡 **Indexes**
->
-> - `idx_dh_delivery`: (delivery_id, changed_at)
+| `created_at` | datetime | not null | 생성일 |
+| `updated_at` | datetime | not null | 수정일 |
 
 ---
 
@@ -310,7 +346,7 @@
 | `user_id` | bigint | not null | 작성자 ID |
 | `order_item_id` | bigint | unique, not null | 1주문 1리뷰 원칙 (1:1) |
 | `product_id` | bigint | not null | 상품 ID |
-| `rating` | tinyint | not null | 별점 (1~5) |
+| `rating` | int | not null | 별점 (1~5) |
 | `content` | text |  | 리뷰 내용 |
 | `created_at` | datetime | not null |  |
 | `updated_at` | datetime | not null |  |
@@ -328,20 +364,25 @@
 | `review_id` | bigint | not null | 리뷰 ID |
 | `image_url` | varchar(500) | not null | 이미지 S3 URL |
 | `display_order` | int |  | 여러 이미지 중 순서 노출 |
+| `created_at` | datetime | not null | 생성일 |
+| `updated_at` | datetime | not null | 수정일 |
 
-### `review_summary` (AI 리뷰 요약 정보)  → 리뷰요약정보(상품 평균 별점, 총 리뷰 수 등)  / AI 요약정보 분리 ( 키워드들, 긍정도, 요약 갱신 일시  등)
+### `product_review_summary` (AI 리뷰 요약 정보)
 
 | **Column** | **Type** | **Attributes** | **Description** |
 | --- | --- | --- | --- |
-| `summary_id` | bigint | PK, increment |  |
-| `product_id` | bigint | unique, not null | 대상 상품 ID (1:1) |
-| `summary` | text |  | 전체 요약 텍스트 |
-| `pros` | json |  | 장점 키워드 목록 |
-| `cons` | json |  | 단점 키워드 목록 |
-| `keywords` | json |  | 핵심 키워드 목록 |
-| `sentiment` | varchar(20) |  | `POSITIVE` / `NEUTRAL` / `NEGATIVE` |
+| `id` | bigint | PK, increment | 요약 ID |
+| `product_id` | bigint | unique, not null | 대상 상품 ID (1:1, FK `fk_review_summary_product`) |
+| `pros` | text | not null | 장점 키워드 목록 |
+| `cons` | text | not null | 단점 키워드 목록 |
+| `keywords` | text | not null | 핵심 키워드 목록 |
+| `sentiment` | varchar(255) | not null | `POSITIVE` / `NEUTRAL` / `NEGATIVE` |
+| `last_included_review_id` | bigint |  | 마지막으로 요약에 포함된 리뷰 ID (증분 업데이트 경계점) |
+| `review_count` | bigint | not null | 요약 기준 리뷰 수 캐시 |
+| `average_rating` | double | not null | 상품 평균 별점 |
+| `version` | bigint |  | 낙관적 락 버전 |
+| `created_at` | datetime | not null | 생성일 |
 | `updated_at` | datetime | not null | 요약 갱신 일시 |
-| `average_rate` | double |  | 상품 평균 별점 |
 
 ---
 
@@ -355,6 +396,7 @@
 | `user_id` | bigint | unique, not null | 소유자 ID, BUYER 기준 1:1 |
 | `balance` | int | not null, default: 0 | 현재 사용 가능 포인트 총액 |
 | `version` | int | not null, default: 0 | 낙관적 락 버전 |
+| `integrity_hash` | varchar(64) | not null | 무결성 해시 (HMAC-SHA256) |
 | `created_at` | datetime | not null | 생성일 |
 | `updated_at` | datetime | not null | 수정일 |
 
@@ -418,8 +460,8 @@
 | `status` | varchar(20) | not null, default: `ACTIVE` | `ACTIVE` / `EXPIRED` / `CANCELLED` |
 | `created_at` | datetime | not null | 생성일 |
 | `updated_at` | datetime | not null | 수정일 |
-| `next_payment_date` | datetime |  | 다음 자동 결제 예정일시 |
-| cancel_reason | cancel_reason | null | 구독 해지 사유 |
+| `next_payment_date` | datetime | not null | 다음 자동 결제 예정일시 |
+| `cancel_reason` | varchar(255) | null | 구독 해지 사유 |
 
 > 💡 **Indexes**
 >
@@ -507,6 +549,8 @@
 
 ## 11. 결제 (Payment)
 
+### `payments` (결제 정보)
+
 | **Column** | **Type** | **Attributes** | **Description** |
 | --- | --- | --- | --- |
 | `payment_id` | bigint | PK, increment | 결제 ID |
@@ -523,6 +567,8 @@
 ---
 
 ## 12. 알림 (Notification)
+
+### `notification` (알림 정보)
 
 | **Column** | **Type** | **Attributes** | **Description** |
 | --- | --- | --- | --- |
@@ -543,6 +589,46 @@
 
 ---
 
+## 13. 관리자 (Admin)
+
+### `admin_action_history` (관리자 처리 이력)
+
+| **Column** | **Type** | **Attributes** | **Description** |
+| --- | --- | --- | --- |
+| `history_id` | bigint | PK, increment | 이력 ID |
+| `actor_id` | bigint | not null | 처리한 관리자 ID |
+| `target_type` | varchar(20) | not null | `SELLER` / `PRODUCT` / `ADMIN_USER` |
+| `target_id` | bigint | not null | 처리 대상 ID |
+| `action` | varchar(20) | not null | `APPROVE` / `REJECT` / `FORCE_INACTIVE` / `REACTIVATE` / `GRANT_ADMIN` / `REVOKE_ADMIN` |
+| `reason` | varchar(255) |  | 처리 사유 (반려/강제비활성화 시 필수) |
+| `created_at` | datetime | not null | 생성일 |
+| `updated_at` | datetime | not null | 수정일 |
+
+> 💡 **Indexes**
+>
+> - `idx_aah_actor`: (actor_id, created_at)
+> - `idx_aah_target`: (target_type, target_id, created_at)
+
+### `user_security_actions` (회원 보안 조치 이력)
+
+| **Column** | **Type** | **Attributes** | **Description** |
+| --- | --- | --- | --- |
+| `id` | bigint | PK, increment | 보안 조치 ID |
+| `target_user_id` | bigint | not null | 대상 회원 ID |
+| `admin_user_id` | bigint | not null | 조치한 관리자 ID |
+| `action_type` | varchar(50) | not null | `SUSPEND` / `UNSUSPEND` / `FORCE_LOGOUT` |
+| `reason_code` | varchar(100) | not null | 사유 코드 |
+| `reason_detail` | varchar(1000) |  | 사유 상세 |
+| `started_at` | datetime | not null | 조치 시작 시각 |
+| `expires_at` | datetime |  | 조치 만료 시각 (정지 등) |
+| `active` | boolean | not null | 활성 여부 |
+
+> 💡 **Indexes**
+>
+> - `idx_usa_target_active`: (target_user_id, action_type, active)
+
+---
+
 ## 🔗 테이블 간 관계 (Relations)
 
 ```
@@ -550,14 +636,22 @@ seller.user_id (1) ── (1) user.user_id
 category.parent_id (N) ── (1) category.category_id
 
 product.seller_id (N) ── (1) seller.seller_id
-product.category_id (N) ── (1) category.category_id
 product_item.product_id (N) ── (1) product.product_id
+product_category_mapping.product_id (N) ── (1) product.product_id
+product_category_mapping.category_id (N) ── (1) category.category_id
+product_image.product_id (N) ── (1) product.product_id
+inventory_history.item_id (N) ── (1) product_item.item_id
+product_tag.product_id (N) ── (1) product.product_id
+related_product.base_product_id (N) ── (1) product.product_id
+related_product.target_product_id (N) ── (1) product.product_id
+search_history.user_id (N) ── (1) user.user_id
 
 cart.user_id (1) ── (1) user.user_id
 cart_item.cart_id (N) ── (1) cart.cart_id
 cart_item.item_id (N) ── (1) product_item.item_id
 
 orders.user_id (N) ── (1) user.user_id
+orders.subscription_id (N) ── (1) subscription.subscription_id
 orders.user_coupon_id (N) ── (1) user_coupon.user_coupon_id
 order_item.order_id (N) ── (1) orders.order_id
 order_item.item_id (N) ── (1) product_item.item_id
@@ -572,7 +666,7 @@ review.user_id (N) ── (1) user.user_id
 review.order_item_id (1) ── (1) order_item.order_item_id
 review.product_id (N) ── (1) product.product_id
 review_image.review_id (N) ── (1) review.review_id
-review_summary.product_id (1) ── (1) product.product_id
+product_review_summary.product_id (1) ── (1) product.product_id
 
 point.user_id (1) ── (1) user.user_id
 point_history.point_id (N) ── (1) point.point_id
@@ -585,7 +679,7 @@ subscription.user_id (N) ── (1) user.user_id
 
 user_coupon.user_id (N) ── (1) user.user_id
 user_coupon.coupon_id (N) ── (1) coupon.coupon_id
-user_coupon.used_order_id (N) ── (1) orders.order_id
+user_coupon.used_order_id (1) ── (1) orders.order_id
 
 payment.order_id (1) ── (1) orders.order_id
 

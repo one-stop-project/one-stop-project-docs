@@ -313,26 +313,26 @@
 ## SEARCH
 | NO.     | 도메인  | 기능명                         | 시나리오                                   | Method | Endpoint | 사전 조건 | Request | Response | 상태코드 | 통과여부 |
 |--------|--------|--------------------------------|--------------------------------------------|--------|----------|-----------|----------|----------|----------|----------|
-| SRH-001 | SEARCH | 상품 검색/목록                | 정상 keyword/카테고리 검색                | GET    | /api/products/search?keyword=노트북&categoryId=2&sort=LATEST&page=0&size=20 | - | keyword+category | 검색 결과 페이지 | 200 | 통과 |
-| SRH-002 | SEARCH | 키워드 정규화                | 공백/특수문자 keyword 정규화              | GET    | /api/products/search | - | keyword=공백/특수 | 전체 목록 | 200 | 통과 |
-| SRH-003 | SEARCH | 인기순 검색                  | POPULAR (키워드 없음)                    | GET    | /api/products/search?sort=POPULAR | Redis ZSET | 없음 | 인기 랭킹 리스트 | 200 | 통과 |
-| SRH-004 | SEARCH | 인기순 + keyword            | keyword 존재 시 repository 검색 전환      | GET    | /api/products/search?keyword=의자&sort=POPULAR | - | keyword | 판매량 정렬 | 200 | 통과 |
-| SRH-005 | SEARCH | 인기순 + 필터               | category/minPrice 존재 시 POPULAR 무시     | GET    | /api/products/search | - | filter params | repository 검색 | 200 | 통과 |
-| SRH-006 | SEARCH | 인기순 페이징               | POPULAR page 이동                         | GET    | /api/products/search?sort=POPULAR&page=1&size=10 | 20+ 인기상품 | page | 11~20위 | 200 | 통과 |
-| SRH-007 | SEARCH | 인기순 노출 필터            | 판매불가 상품 제외                         | GET    | /api/products/search?sort=POPULAR | - | 없음 | 노출가능 상품만 | 200 | 통과 |
-| SRH-008 | SEARCH | 인기순 fallback             | Redis 장애 fallback                        | GET    | /api/products/search?sort=POPULAR | Redis fail | 없음 | DB fallback | 200 | 통과 |
-| SRH-009 | SEARCH | 정렬 파라미터 변환          | sort invalid → LATEST                      | GET    | /api/products/search | - | sort=BOGUS | LATEST fallback | 200 | 통과 |
-| SRH-010 | SEARCH | LATEST 정렬                 | 최신순 조회                               | GET    | /api/products/search | DB | - | 최신순 | 200 | 통과 |
-| SRH-011 | SEARCH | PRICE 정렬                  | 가격 오름/내림                            | GET    | /api/products/search | DB | sort=PRICE_ASC/DESC | 정렬 결과 | 200 | 통과 |
-| SRH-012 | SEARCH | POPULAR 정렬                | 판매량 정렬 + stable sort                 | GET    | /api/products/search | DB | sort=POPULAR | 인기순 | 200 | 통과 |
-| SRH-013 | SEARCH | 가격 필터                   | min/max price                             | GET    | /api/products/search | DB | price range | 필터 결과 | 200 | 통과 |
-| SRH-014 | SEARCH | 태그 검색                   | tag normalization                          | GET    | /api/products/search | DB | keyword tag | 매칭 결과 | 200 | 통과 |
-| SRH-015 | SEARCH | 페이징 / N+1 방지           | paging + 옵션 fetch                       | GET    | /api/products/search | DB | page/size | page result | 200 | 통과 |
+| SRH-001 | SEARCH | 상품 검색/목록                | 정상 keyword/카테고리 검색                | GET    | /api/products?keyword=노트북&categoryId=2&sort=LATEST&page=0&size=20 | - | keyword+category | 검색 결과 페이지 | 200 | 통과 |
+| SRH-002 | SEARCH | 키워드 정규화                | 공백/특수문자 keyword 정규화              | GET    | /api/products | - | keyword=공백/특수 | 전체 목록 | 200 | 통과 |
+| SRH-003 | SEARCH | 인기순 검색                  | POPULAR (키워드 없음)                    | GET    | /api/products?sort=POPULAR | Redis ZSET | 없음 | 인기 랭킹 리스트 | 200 | 통과 |
+| SRH-004 | SEARCH | 인기순 + keyword            | keyword 존재 시 repository 검색 전환      | GET    | /api/products?keyword=의자&sort=POPULAR | - | keyword | 판매량 정렬 | 200 | 통과 |
+| SRH-005 | SEARCH | 인기순 + 필터               | category/minPrice 존재 시 POPULAR 무시     | GET    | /api/products | - | filter params | repository 검색 | 200 | 통과 |
+| SRH-006 | SEARCH | 인기순 페이징               | POPULAR page 이동                         | GET    | /api/products?sort=POPULAR&page=1&size=10 | 20+ 인기상품 | page | 11~20위 | 200 | 통과 |
+| SRH-007 | SEARCH | 인기순 노출 필터            | 판매불가 상품 제외                         | GET    | /api/products?sort=POPULAR | - | 없음 | 노출가능 상품만 | 200 | 통과 |
+| SRH-008 | SEARCH | 인기순 fallback             | Redis 장애 fallback                        | GET    | /api/products?sort=POPULAR | Redis fail | 없음 | DB fallback | 200 | 통과 |
+| SRH-009 | SEARCH | 정렬 파라미터 변환          | sort invalid → LATEST                      | GET    | /api/products | - | sort=BOGUS | LATEST fallback | 200 | 통과 |
+| SRH-010 | SEARCH | LATEST 정렬                 | 최신순 조회                               | GET    | /api/products | DB | - | 최신순 | 200 | 통과 |
+| SRH-011 | SEARCH | PRICE 정렬                  | 가격 오름/내림                            | GET    | /api/products | DB | sort=PRICE_ASC/DESC | 정렬 결과 | 200 | 통과 |
+| SRH-012 | SEARCH | POPULAR 정렬                | 판매량 정렬 + stable sort                 | GET    | /api/products | DB | sort=POPULAR | 인기순 | 200 | 통과 |
+| SRH-013 | SEARCH | 가격 필터                   | min/max price                             | GET    | /api/products | DB | price range | 필터 결과 | 200 | 통과 |
+| SRH-014 | SEARCH | 태그 검색                   | tag normalization                          | GET    | /api/products | DB | keyword tag | 매칭 결과 | 200 | 통과 |
+| SRH-015 | SEARCH | 페이징 / N+1 방지           | paging + 옵션 fetch                       | GET    | /api/products | DB | page/size | page result | 200 | 통과 |
 | SRH-016 | SEARCH | 연관상품                    | related products                           | GET    | /api/products/{id}/related | category | - | related list | 200 | 통과 |
-| SRH-017 | SEARCH | FULLTEXT 검색               | 상품명 검색                               | GET    | /api/products/search | MySQL FT | keyword | 매칭 결과 | 200 | 통과 |
-| SRH-018 | SEARCH | FULLTEXT OR 검색            | 설명/토큰 검색                            | GET    | /api/products/search | MySQL FT | keyword | OR match | 200 | 통과 |
-| SRH-019 | SEARCH | FULLTEXT + filter           | AND + category filter                      | GET    | /api/products/search | MySQL FT | keyword+category | filtered | 200 | 통과 |
-| SRH-020 | SEARCH | 인기 검색어                 | Redis keyword ranking                     | GET    | /api/search/popular-keywords | Redis | limit | rank list | 200 | 통과 |
+| SRH-017 | SEARCH | FULLTEXT 검색               | 상품명 검색                               | GET    | /api/products | MySQL FT | keyword | 매칭 결과 | 200 | 통과 |
+| SRH-018 | SEARCH | FULLTEXT OR 검색            | 설명/토큰 검색                            | GET    | /api/products | MySQL FT | keyword | OR match | 200 | 통과 |
+| SRH-019 | SEARCH | FULLTEXT + filter           | AND + category filter                      | GET    | /api/products | MySQL FT | keyword+category | filtered | 200 | 통과 |
+| SRH-020 | SEARCH | 인기 검색어                 | Redis keyword ranking                     | GET    | /api/products/popular-keywords | Redis | limit | rank list | 200 | 통과 |
 | SRH-021 | SEARCH | 인기 태그 자동완성          | prefix search                              | GET    | /api/search/tags?keyword=NI | Redis/DB | prefix | tag list | 200 | 통과 |
 
 
