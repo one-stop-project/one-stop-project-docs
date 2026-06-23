@@ -8,6 +8,8 @@
 
 ## 공통 응답 형식
 
+> 실패 응답의 `code` 값 전체 목록은 [error-code.md](../errorCode/error-code.md)를 참고하세요.
+
 ### 성공
 
 ```json

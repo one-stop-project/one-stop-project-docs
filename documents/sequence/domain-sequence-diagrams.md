@@ -372,7 +372,7 @@ sequenceDiagram
     participant DB as MySQL
 
     User->>FE: 결제 승인 요청
-    FE->>PaymentController: POST /api/payments/confirm
+    FE->>PaymentController: POST /api/payments
     PaymentController->>PaymentService: confirmPayment(orderId, paymentKey)
 
     PaymentService->>PG: 결제 승인 검증
@@ -461,7 +461,7 @@ sequenceDiagram
     participant DB as MySQL
 
     Seller->>FE: 배송 상태 변경
-    FE->>DeliveryController: PATCH /api/deliveries/{id}/status
+    FE->>DeliveryController: PATCH /api/seller/deliveries/{id}/status
     DeliveryController->>DeliveryService: changeStatus(deliveryId, status)
 
     DeliveryService->>DB: 배송 정보 조회
@@ -506,7 +506,7 @@ sequenceDiagram
     participant Storage as Local Storage
 
     Seller->>FE: 상품 등록 정보 입력
-    FE->>SellerController: POST /api/seller/items
+    FE->>SellerController: POST /api/seller/products
     SellerController->>SellerService: createItem(request, sellerId)
 
     SellerService->>SellerService: 판매자 권한 검증
@@ -616,7 +616,7 @@ sequenceDiagram
     participant Cookie as guest_cart_id Cookie
 
     User->>FE: 상품 장바구니 추가
-    FE->>CartController: POST /api/cart/items
+    FE->>CartController: POST /api/carts/items
     CartController->>CartService: addItem(userId or guestCartId, itemId, qty)
     CartService->>DB: 장바구니 항목 저장/수량 증가
     CartService-->>CartController: 장바구니 추가 완료
@@ -905,7 +905,7 @@ sequenceDiagram
     participant DB as MySQL
 
     User->>FE: 리뷰 요약 요청
-    FE->>ReviewAIController: GET /api/items/{itemId}/reviews/summary
+    FE->>ReviewAIController: GET /api/products/{productId}/reviews/ai-summary
     ReviewAIController->>ReviewAIService: summarize(itemId)
 
     ReviewAIService->>Cache: 기존 요약 캐시 조회
@@ -950,7 +950,7 @@ sequenceDiagram
     participant DB as MySQL
 
     User->>FE: 키워드/카테고리 검색
-    FE->>SearchController: GET /api/items?keyword=&category=&sort=
+    FE->>SearchController: GET /api/products?keyword=&category=&sort=
     SearchController->>SearchService: search(condition)
 
     SearchService->>Cache: 검색 결과 캐시 조회
