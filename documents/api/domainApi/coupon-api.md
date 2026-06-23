@@ -23,8 +23,8 @@
       "minOrderPrice": 30000,
       "maxDiscountPrice": null,
       "remainingQuantity": 47,
-      "expiredAt": "2025-06-30T23:59:59",
-      "alreadyIssued": false
+      "startAt": "2025-06-01T00:00:00",
+      "expiredAt": "2025-06-30T23:59:59"
     }
   ]
 }
@@ -34,7 +34,7 @@
 
 ### POST /api/coupons/{couponId}/issue — 쿠폰 발급 (선착순)
 
-**권한** BUYER | Redis 분산락
+**권한** BUYER | Redis DECR (기본 전략 `decr`, `lua`/`lock` 선택 가능)
 
 **Response** `200`
 
@@ -46,6 +46,7 @@
     "couponId": 2,
     "couponName": "전자기기 10% 할인",
     "status": "AVAILABLE",
+    "issuedAt": "2025-05-12T10:00:00",
     "expiredAt": "2025-05-31T23:59:59"
   }
 }
@@ -71,14 +72,15 @@
       {
         "userCouponId": 301,
         "couponId": 2,
-        "name": "전자기기 10% 할인",
+        "couponName": "전자기기 10% 할인",
         "discountType": "RATE",
         "discountValue": 10,
         "minOrderPrice": 50000,
         "maxDiscountPrice": 30000,
         "status": "AVAILABLE",
-        "expiredAt": "2025-05-31T23:59:59",
-        "createdAt": "2025-05-12T10:00:00"
+        "issuedAt": "2025-05-12T10:00:00",
+        "usedAt": null,
+        "expiredAt": "2025-05-31T23:59:59"
       }
     ],
     "page": 0, "size": 20, "totalElements": 8, "totalPages": 1

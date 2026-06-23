@@ -59,4 +59,5 @@
 | 구독 (Subscription) | [subscription-api.md](./domainApi/subscription-api.md) |
 | 관리자 (Admin) | [admin-api.md](./domainApi/admin-api.md) |
 | AI | [ai-api.md](./domainApi/ai-api.md) |
+| 알림 (Notification) | [notification-api.md](./domainApi/notification-api.md) |
 

@@ -30,10 +30,11 @@
     - 2자 이상 20자 이하
 - 회원 전화번호:
     - 입력 시 `010-XXXX-XXXX` 형식
-- SELLER 가입 추가 검증:
-    - `shopName` 필수
-    - `businessNumber` 필수
-    - `bankAccount`는 현재 필수 검증 대상 아님
+- SELLER 가입 추가 검증 (4개 모두 필수):
+    - `shopName` 필수 (SELLER_010)
+    - `businessNumber` 필수 (SELLER_011)
+    - `bankName` 필수 (SELLER_012)
+    - `bankAccount` 필수 (SELLER_013)
 - 로그인 실패 시 이메일 존재 여부와 비밀번호 오류 여부를 구분해서 노출하지 않음
 - 존재하지 않는 이메일도 더미 BCrypt 검증을 수행하여 응답 시간 차이 최소화
 - 로그인 Rate Limit:

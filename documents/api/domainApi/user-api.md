@@ -15,16 +15,18 @@
     "name": "홍길동",
     "phone": "010-1234-5678",
     "address": "서울시 강남구 테헤란로 123",
+    "detailAddress": "10층 1001호",
     "role": "BUYER",
     "status": "ACTIVE",
-    "subscription": {
-      "active": true,
-      "endAt": "2026-05-12T00:00:00"
-    },
+    "social": false,
+    "provider": "kakao",
+    "subscription": { "active": true, "endAt": "2026-05-12T00:00:00" },
     "createdAt": "2025-05-01T10:00:00"
   }
 }
 ```
+
+> `social`은 항상 포함(소셜 로그인 여부). `provider`·`subscription`은 값이 없으면 응답에서 생략(`@JsonInclude(NON_NULL)`).
 
 ---
 
@@ -32,17 +34,18 @@
 
 **권한** BUYER / SELLER
 
-**Request**
+**Request** `UserUpdateRequest` (모든 필드 선택 — null이면 해당 필드 변경 안 함)
 
 ```json
 {
   "name": "홍길순",
   "phone": "010-9999-8888",
-  "address": "서울시 서초구 강남대로 100"
+  "address": "서울시 서초구 강남대로 100",
+  "detailAddress": "20층"
 }
 ```
 
-**Response** `200`
+**Response** `200` — `UserUpdateResponse`
 
 ```json
 {
@@ -51,7 +54,8 @@
     "userId": 1,
     "name": "홍길순",
     "phone": "010-9999-8888",
-    "address": "서울시 서초구 강남대로 100"
+    "address": "서울시 서초구 강남대로 100",
+    "detailAddress": "20층"
   }
 }
 ```

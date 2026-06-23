@@ -121,11 +121,13 @@ user-level cutoff 등록
 | role | 사용자 권한 |
 | status | 사용자 상태 |
 | tokenVersion | JWT 무효화용 버전 |
+| phone | 전화번호 |
 | address | 주소 |
 | detailAddress | 상세주소 |
-| bankName | 은행명 |
-| accountNumber | 계좌번호 |
-| createdAt/updatedAt | 생성/수정 시각 |
+| provider | 소셜 제공자 (소셜 계정만) |
+| providerId | 소셜 제공자 ID |
+| lastLoginAt | 마지막 로그인 시각 |
+| createdAt/modifiedAt | 생성/수정 시각 (BaseEntity) |
 
 ### UserSecurityAction
 

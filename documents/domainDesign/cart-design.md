@@ -27,9 +27,9 @@ guest_cart_id 쿠키 확인
 ↓
 없으면 UUID 발급
 ↓
-Redis Hash에 상품/수량 저장
+Redis Hash(itemId→quantity) 저장 + ZSet에 담기 순서 기록
 ↓
-TTL 갱신
+TTL 갱신 (Hash/ZSet 7일 + guest_cart_id 쿠키)
 ```
 
 ### 3.2 회원 장바구니 추가
@@ -80,14 +80,16 @@ guest_cart_id 쿠키 제거
 |---|---|
 | id | 장바구니 아이템 ID |
 | cartId | 장바구니 ID |
-| productId | 상품 ID |
+| itemId | 상품 옵션 ID (product_item FK) |
 | quantity | 수량 |
+
+> cart_item은 (cart_id, item_id) 유니크 제약으로 동일 옵션 중복 row를 방지한다.
 
 ### Guest Cart Redis
 
 ```text
-cart:guest:{guestCartId}
-  productId -> quantity
+guest:cart:{guestCartId}        (Hash)  itemId -> quantity
+guest:cart-order:{guestCartId}  (ZSet)  itemId -> 담기 시각(score)   // 담기 순서 보존
 ```
 
 ## 5. 기술 선택 근거

@@ -1,7 +1,7 @@
 ## 10. 포인트 (Point)
 
-> 적립: FINAL_DELIVERY 시 결제금액 1% 자동 적립
-만료: 적립일로부터 1년, 스케줄러 매월 1일 일괄 처리
+> 적립: 주문의 모든 상품 배송 완료 시 결제금액 1% 자동 적립
+만료: 적립일로부터 1년, 스케줄러 매일 새벽 3시(KST, `0 0 3 * * *`) 일괄 처리
 차감: 낙관적 락 (@Version + @Retryable 3회)
 환불: 주문 취소 시 전액 복구
 >
@@ -10,7 +10,7 @@
 
 **권한** BUYER
 
-**Query** `type` (EARN / USE / EXPIRE), `page`, `size`
+**Query** `type` (CHARGE / EARN / USE / REFUND / EXPIRE), `page`, `size`
 
 **Response** `200`
 
@@ -49,9 +49,9 @@
 
 ---
 
-### POST /api/users/me/points/charge — 포인트 충전 (테스트용)
+### POST /api/users/me/points/charge — 포인트 충전 (운영 방어용)
 
-**권한** BUYER | 낙관적 락
+**권한** ADMIN / SUPER_ADMIN | 낙관적 락
 
 **Request**
 
@@ -72,7 +72,39 @@
 }
 ```
 
-> 실제 서비스는 결제 적립만 존재. 테스트 편의를 위한 임시 API.
+> 일반 사용자 충전 경로가 아니라 기존 테스트 충전을 차단하기 위한 방어용 경로다. `local`/`test`/`dev` 프로파일에서만 Bean이 등록된다.
 >
 
-**에러** `POINT_001` 최소 금액 미달 (1,000원) | `POINT_002` 최대 금액 초과
+**에러** `400` 검증 에러 (amount 누락 또는 1,000~1,000,000원 범위 밖) | `POINT_004` 충전 한도 위반(1,000~1,000,000원, 서비스 가드) | `POINT_005` 동시성 충돌 재시도 초과
+
+---
+
+### POST /api/test/users/me/points/charge — 포인트 충전 (테스트/시연용)
+
+**권한** BUYER
+
+**Header** `X-Test-Api-Key` 필수
+
+**Request**
+
+```json
+{ "amount": 10000 }
+```
+
+**Response** `200`
+
+```json
+{
+  "success": true,
+  "data": {
+    "balance": 42500,
+    "earnedAmount": 10000,
+    "expireAt": "2026-05-12"
+  }
+}
+```
+
+> `app.test-api.point-charge.enabled=true`일 때만 Bean이 등록되는 부하 테스트/시연 전용 API. 실제 서비스 포인트 적립은 배송 완료 시 자동 적립만 존재한다.
+>
+
+**에러** `401` API Key 누락/불일치 (AUTH_007) | `400` 검증 에러 | `POINT_004` 충전 한도 위반(1,000~1,000,000원)

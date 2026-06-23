@@ -119,7 +119,7 @@ CAS Lua Script로 기존 RT hash를 새 RT hash로 교체
 | 토큰 | 역할 | 만료 | 저장 위치 | 서버 저장 |
 |---|---|---:|---|---|
 | Access Token | 보호 API 접근 | 15분 | 클라이언트 | 원칙적으로 저장하지 않음 |
-| Refresh Token | AT 재발급 | 7일 | HttpOnly Cookie | Redis에 hash 저장 |
+| Refresh Token | AT 재발급 | 14일 | HttpOnly Cookie | Redis에 hash 저장 |
 
 Access Token에는 `userId`, `role`, `jti`, `ver` claim을 포함한다.
 
